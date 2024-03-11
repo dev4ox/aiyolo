@@ -1,14 +1,18 @@
-from ultralytics import YOLO
+from model import Model
+from api import *
 
-# https://habr.com/ru/articles/714232/
+
+class Main:
+    def __init__(self):
+        # https://habr.com/ru/articles/714232/
+
+        # yolo model init in main class
+        self.model = Model()
+        print("model init done")
+
 
 if __name__ == '__main__':
-    model = YOLO('yolov8n.pt')
+    main = Main()
+    start_local_server()
+    # main.model.train()
 
-    results = model.train(
-        data='pothole.yaml',
-        imgsz=640,
-        epochs=50,
-        batch=8,
-        name='yolov8n_custom'
-    )
