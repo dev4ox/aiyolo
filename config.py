@@ -21,10 +21,35 @@ API_VERSION = "0.0.1"
 API_OPEN_URL = "/aiYOLO-api.json"
 API_DOCS_URL = "/"
 
-
 # file names
 FILE_NAME_CONFIG_TRAIN_MODEL = "data"
 
 # file types
 FILE_TYPE_CONFIG_TRAIN_MODEL = ".yaml"
 FILE_TYPE_GET_IMAGE = ".png"
+
+# classes
+CLASSES = {  # classes num 21
+    0: '0',
+    1: '1',
+    2: '2',
+    3: '3',
+    4: '4',
+    5: '5',
+    6: '6',
+    7: '7',
+    8: '8',
+    9: '9',
+    10: 'A',
+    11: 'B',
+    12: 'C',
+    13: 'E',
+    14: 'H',
+    15: 'K',
+    16: 'M',
+    17: 'O',
+    18: 'P',
+    19: 'T',
+    20: 'X',
+    21: 'Y',
+}
