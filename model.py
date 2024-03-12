@@ -16,11 +16,11 @@ from config import (
 class Model:
     def __init__(self):
         # init model
-        self._model = YOLO('best_model_new_ds.pt')
+        self.model = YOLO('best_model_new_ds.pt')
 
     def train(self) -> dict | None:  # func train model
         # train model start
-        results = self._model.train(
+        results = self.model.train(
             data=FILE_NAME_CONFIG_TRAIN_MODEL + FILE_TYPE_CONFIG_TRAIN_MODEL,
             imgsz=MODEL_IMAGE_SIZE,
             epochs=MODEL_TRAIN_EPOCHS,
@@ -33,7 +33,7 @@ class Model:
     def predict(self, image: str | list) -> bool:  # func predict image
         try:
             # image predict
-            self._model.predict(
+            self.model.predict(
                 source=image,
                 save=MODEL_PREDICT_SAVE_IMAGE,
                 save_txt=MODEL_PREDICT_SAVE_TXT,
