@@ -15,4 +15,3 @@ if __name__ == '__main__':
     main = Main()
     start_local_server()
     # main.model.train()
-
