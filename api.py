@@ -2,9 +2,11 @@ from typing import Annotated
 import os
 import glob
 from pathlib import Path
+import gc
 
 from fastapi import FastAPI, UploadFile, Response, File
 import uvicorn
+import aiofiles
 
 from config import (
     API_SERVER_PORT,
@@ -29,7 +31,7 @@ app = FastAPI(
 model = Model()
 
 
-async def _create_image_file(img: Annotated[UploadFile, File()]) -> str:
+def _create_image_file(img: Annotated[UploadFile, File()]) -> str:
     # create dir to "get images"
     if not os.path.exists(DIR_IMAGES):
         os.mkdir(DIR_IMAGES)
@@ -46,9 +48,9 @@ async def _create_image_file(img: Annotated[UploadFile, File()]) -> str:
     return image_path
 
 
-async def _get_predict_path(image: Annotated[UploadFile, File()]) -> str:
+def _get_predict_path(image: Annotated[UploadFile, File()]) -> str:
     # create image file from "get image"
-    image_path = await _create_image_file(image)
+    image_path = _create_image_file(image)
 
     # predict "get image"
     predict_done = model.predict(image_path)
@@ -72,7 +74,7 @@ async def _get_predict_path(image: Annotated[UploadFile, File()]) -> str:
         raise
 
 
-@app.put(
+@app.patch(
     "/api/patch_image",
     name="patch_image",
     description="На вход принимает изображение для обработки. "
@@ -84,9 +86,9 @@ async def _get_predict_path(image: Annotated[UploadFile, File()]) -> str:
     },
     response_class=Response
 )
-async def get_image(image: Annotated[UploadFile, File()]) -> Response:  # get image to predict
+def get_image(image: Annotated[UploadFile, File()]) -> Response:  # get image to predict
     # get now predict path
-    now_predict_path = await _get_predict_path(image)
+    now_predict_path = _get_predict_path(image)
 
     # open predict image and get bytes of image
     with open(now_predict_path, "rb") as image_file:
@@ -95,42 +97,53 @@ async def get_image(image: Annotated[UploadFile, File()]) -> Response:  # get im
     return Response(content=image_bytes_return, media_type="image/png")
 
 
-@app.put(
+@app.patch(
     "/api/patch_image_txt",
     name="patch_image_txt",
     description="На вход принимает изображение для обработки. "
                 "Вернёт список распознаных классов в текстовом варианте.",
-    responses={
-        200: {
-            "content": {"image/txt": {}}
-        }
-    },
 )
-async def get_image_txt(image: Annotated[UploadFile, File()]) -> str:
-    now_predict_path = Path(await _get_predict_path(image))
+async def get_image_txt(image: Annotated[UploadFile, File()]) -> Response:
+    now_predict_path = Path(_get_predict_path(image))
     path_parent = str(now_predict_path.parent)
     path_name = now_predict_path.name
     path_suffix = now_predict_path.suffix
+    text_temp = []
 
     with open(path_parent + f"/labels/{path_name[:-len(path_suffix)]}.txt", "r") as predict_file_txt:
-        data = list(predict_file_txt.read())
-        text_temp = ""
-        count_string = 0
-        strings_dict = []
+        text_temp.clear()
+        data = predict_file_txt.readlines()
+    for line in data:
+        text_temp.append(CLASSES[int(line[:2])])
 
-        for value in data:
-            text_temp += value
-
-            if value == "\n":
-                strings_dict.append(text_temp)
-                text_temp = ""
-                count_string += 1
-
-        text_temp = ""
-        for string in strings_dict:
-            text_temp += CLASSES[int(list(string)[0] + list(string)[1])]
-
-    return text_temp
+    return Response(content="".join(text_temp))
+# async def get_image_txt(image: Annotated[UploadFile, File()]) -> str:
+#     now_predict_path = Path(await _get_predict_path(image))
+#     path_parent = str(now_predict_path.parent)
+#     path_name = now_predict_path.name
+#     path_suffix = now_predict_path.suffix
+#
+#     text_temp = ""
+#     with open(path_parent + f"/labels/{path_name[:-len(path_suffix)]}.txt", "r") as predict_file_txt:
+#         data = list(predict_file_txt.read())
+#         count_string = 0
+#         strings_dict = []
+#
+#         for value in data:
+#             text_temp += value
+#
+#             if value == "\n":
+#                 strings_dict.append(text_temp)
+#                 text_temp = ""
+#                 count_string += 1
+#
+#         text_temp = ""
+#         for string in strings_dict:
+#             text_temp += CLASSES[int(list(string)[0] + list(string)[1])]
+#
+#         print(text_temp)
+#
+#     return text_temp
 
 
 def start_local_server(server_port: int | None = None) -> None:  # start local server to api
