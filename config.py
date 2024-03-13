@@ -19,7 +19,7 @@ API_SERVER_PORT = 1024
 API_TITLE = "AiYOLO-API"
 API_VERSION = "0.0.1"
 API_OPEN_URL = "/aiYOLO-api.json"
-API_DOCS_URL = "/"
+API_DOCS_URL = "/docs"
 
 # file names
 FILE_NAME_CONFIG_TRAIN_MODEL = "data"

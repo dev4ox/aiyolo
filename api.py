@@ -2,11 +2,14 @@ from typing import Annotated
 import os
 import glob
 from pathlib import Path
+import random
 import gc
 
 from fastapi import FastAPI, UploadFile, Response, File
+from starlette.middleware import Middleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
-import aiofiles
 
 from config import (
     API_SERVER_PORT,
@@ -21,12 +24,29 @@ from config import (
 )
 from model import Model
 
+
+class CustomHTTPMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        # Перед вызовом следующего обработчика, устанавливаем параметры соединения
+        request.scope["http_connection"] = "close"  # Отключаем Keep-Alive
+        response = await call_next(request)
+        return response
+
+
 app = FastAPI(
     title=API_TITLE,
     version=API_VERSION,
     openapi_url=API_OPEN_URL,
     docs_url=API_DOCS_URL,
 )
+
+
+@app.middleware("http")
+async def secure_middleware(request, call_next):
+    response = await call_next(request)
+    del response.headers["Server"]
+    del response.headers["server"]
+    return response
 
 model = Model()
 
@@ -96,7 +116,6 @@ def get_image(image: Annotated[UploadFile, File()]) -> Response:  # get image to
 
     return Response(content=image_bytes_return, media_type="image/png")
 
-
 @app.patch(
     "/api/patch_image_txt",
     name="patch_image_txt",
@@ -115,8 +134,13 @@ async def get_image_txt(image: Annotated[UploadFile, File()]) -> Response:
         data = predict_file_txt.readlines()
     for line in data:
         text_temp.append(CLASSES[int(line[:2])])
-
-    return Response(content="".join(text_temp))
+    headers = {
+        'Cache-Control': f'no-cache, no-store, must-revalidate, {random.random()}',
+        'Pragma': 'no-cache'
+    }
+    response = Response(content="".join(text_temp))
+    response.headers["Connection"] = "close"
+    return response
 # async def get_image_txt(image: Annotated[UploadFile, File()]) -> str:
 #     now_predict_path = Path(await _get_predict_path(image))
 #     path_parent = str(now_predict_path.parent)
