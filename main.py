@@ -1,5 +1,5 @@
 from model import Model
-from api import *
+from api import start_local_server
 
 
 class Main:

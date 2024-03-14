@@ -30,18 +30,12 @@ class Model:
 
         return results
 
-    def predict(self, image: str | list) -> bool:  # func predict image
-        try:
-            # image predict
-            self.model.predict(
-                source=image,
-                save=MODEL_PREDICT_SAVE_IMAGE,
-                save_txt=MODEL_PREDICT_SAVE_TXT,
-                imgsz=MODEL_IMAGE_SIZE,
-                conf=MODEL_PREDICT_CONF,
-            )
-            return True
-
-        except Exception as e:
-            print(e)
-            return False
+    def predict(self, image: str | list) -> None:  # func predict image
+        # image predict
+        self.model.predict(
+            source=image,
+            save=MODEL_PREDICT_SAVE_IMAGE,
+            save_txt=MODEL_PREDICT_SAVE_TXT,
+            imgsz=MODEL_IMAGE_SIZE,
+            conf=MODEL_PREDICT_CONF,
+        )
