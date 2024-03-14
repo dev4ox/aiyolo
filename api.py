@@ -4,7 +4,7 @@ import glob
 from pathlib import Path
 
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
@@ -74,7 +74,7 @@ async def _get_predict_text(image_path: Path) -> str:
     return predict_text
 
 
-async def _get_predict(image: Annotated[UploadFile, File()]) -> JSONResponse:
+async def _get_predict(image: Annotated[UploadFile, File()]) -> HTMLResponse:
     # create image file from "get image"
     image_path = _create_image_file(image)
 
@@ -87,12 +87,19 @@ async def _get_predict(image: Annotated[UploadFile, File()]) -> JSONResponse:
 
     _del_predict_path(str(image_path.parent))
 
-    return JSONResponse(
-        content={
-            "image": str(image_bytes),
-            "text": predict_text,
-        }
-    )
+    html_response = """
+    <html>
+        <head>
+            <title>Some HTML in here</title>
+        </head>
+        <body>
+            <h1>Look ma! HTML!</h1>
+        </body>
+    </html>
+    """
+
+    # "http://127.0.0.1:1024/static/image.png"
+    return HTMLResponse(content=html_response)
 
 
 def _del_predict_path(path_now_predict: str) -> None:
@@ -109,36 +116,14 @@ def _del_predict_path(path_now_predict: str) -> None:
                 os.removedirs(path)
 
 
-# @app.patch(
-#     "/api/patch_image",
-#     name="patch_image",
-#     description="На вход принимает изображение для обработки. "
-#                 "Вернёт обработано изображение с выделными классами, которые были распознаны.",
-#     responses={
-#         200: {
-#             "content": {"image/png": {}}
-#         }
-#     },
-#     response_class=Response
-# )
-# def get_image(image: Annotated[UploadFile, File()]) -> Response:  # get image to predict
-#     # get now predict path
-#     now_predict_path = _get_predict_path(image)
-#
-#     # open predict image and get bytes of image
-#     with open(now_predict_path, "rb") as image_file:
-#         image_bytes_return = image_file.read()
-#
-#     return Response(content=image_bytes_return, media_type="image/png")
-
-
 @app.patch(
     "/api/patch_image",
     name="patch_image",
     description="На вход принимает изображение для обработки. "
                 "Вернёт список распознаных классов в текстовом варианте.",
+    response_class=HTMLResponse,
 )
-async def get_image_txt(image: Annotated[UploadFile, File()]) -> dict:
+async def get_image_txt(image: Annotated[UploadFile, File()]) -> HTMLResponse:
     data = await _get_predict(image)
 
     return data
