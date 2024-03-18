@@ -1,12 +1,14 @@
 from typing import Annotated
 import os
-import glob
+import shutil
 from pathlib import Path
+import uuid
 
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+from PIL import Image
 
 from config import (
     API_SERVER_PORT,
@@ -18,6 +20,8 @@ from config import (
     FILE_TYPE_GET_IMAGE,
     DIR_RUNS,
     CLASSES,
+    API_SERVER_HOST,
+    MODEL_IMAGE_SIZE,
 )
 from model import Model
 
@@ -28,9 +32,30 @@ app = FastAPI(
     openapi_url=API_OPEN_URL,
     docs_url=API_DOCS_URL,
 )
+
+
+def _del_predict_path(path: str) -> None:
+    if os.path.exists(path):
+        shutil.rmtree(path)
+
+
+_del_predict_path(DIR_RUNS)
+_del_predict_path(DIR_IMAGES)
+os.mkdir(DIR_IMAGES)
 app.mount("/static", StaticFiles(directory="images/"), name="static")
 
 model = Model()
+
+
+def _image_file_resize(image_path: str) -> None:
+    # get image in pillow object
+    with Image.open(image_path) as image:
+        image.load()
+
+    new_size_image = (MODEL_IMAGE_SIZE, MODEL_IMAGE_SIZE)
+    image_resize = image.resize(new_size_image)
+    image_resize.save(image_path)
+    image_resize.show()
 
 
 def _create_image_file(img: Annotated[UploadFile, File()]) -> Path:
@@ -44,18 +69,21 @@ def _create_image_file(img: Annotated[UploadFile, File()]) -> Path:
         image.write(img.file.read())
 
     # rename "get image"
-    os.rename(image_path, DIR_IMAGES + "image" + FILE_TYPE_GET_IMAGE)
-    image_path = DIR_IMAGES + "image" + FILE_TYPE_GET_IMAGE
+    new_name_image = str(uuid.uuid4())
+    new_path_image = DIR_IMAGES + new_name_image + FILE_TYPE_GET_IMAGE
+    os.rename(image_path, new_path_image)
 
-    return Path(image_path)
+    # _image_file_resize(new_path_image)
+
+    return Path(new_path_image)
 
 
-async def _get_predict_image(image_path: Path) -> bytes:
+async def _get_predict_image(image_path: Path) -> Path:
     # open predict image and get bytes of image
-    with open(image_path, "rb") as image_file:
-        image_bytes_return = image_file.read()
+    new_path_output_image = DIR_IMAGES + image_path.name.split(image_path.suffix)[0] + "_output" + FILE_TYPE_GET_IMAGE
+    shutil.copy(image_path, new_path_output_image)
 
-    return image_bytes_return
+    return Path(new_path_output_image)
 
 
 async def _get_predict_text(image_path: Path) -> str:
@@ -65,16 +93,20 @@ async def _get_predict_text(image_path: Path) -> str:
     path_predict_txt = Path(path_parent + f"/labels/{path_name[:-len(path_suffix)]}.txt")
     predict_text = ""
 
-    with open(path_predict_txt, "r") as predict_file_txt:
-        data = predict_file_txt.readlines()
+    try:
+        with open(path_predict_txt, "r") as predict_file_txt:
+            data = predict_file_txt.readlines()
 
-    for line in data:
-        predict_text += CLASSES[int(line[:2])]
+        for line in data:
+            predict_text += CLASSES[int(line[:2])]
+
+    except FileNotFoundError:
+        pass
 
     return predict_text
 
 
-async def _get_predict(image: Annotated[UploadFile, File()]) -> HTMLResponse:
+async def _get_predict(image: Annotated[UploadFile, File()]) -> JSONResponse:
     # create image file from "get image"
     image_path = _create_image_file(image)
 
@@ -83,37 +115,17 @@ async def _get_predict(image: Annotated[UploadFile, File()]) -> HTMLResponse:
     image_path = Path(DIR_RUNS + f"detect/predict/" + Path(image_path).name)
 
     predict_text = await _get_predict_text(image_path)
-    image_bytes = await _get_predict_image(image_path)
+    path_output_image = await _get_predict_image(image_path)
 
-    _del_predict_path(str(image_path.parent))
+    # _del_predict_path(str(image_path.parent))
 
-    html_response = """
-    <html>
-        <head>
-            <title>Some HTML in here</title>
-        </head>
-        <body>
-            <h1>Look ma! HTML!</h1>
-        </body>
-    </html>
-    """
+    json_response = {
+        "predict text": predict_text,
+        "image link": f"http://{API_SERVER_HOST}:{API_SERVER_PORT}/static/{path_output_image.name}"
+    }
 
     # "http://127.0.0.1:1024/static/image.png"
-    return HTMLResponse(content=html_response)
-
-
-def _del_predict_path(path_now_predict: str) -> None:
-    for path in glob.glob(path_now_predict + "*"):
-        if os.path.isfile(path):
-            os.remove(path)
-
-        elif os.path.isdir(path):
-            try:
-                os.removedirs(path)
-
-            except OSError:
-                _del_predict_path(path + "/")
-                os.removedirs(path)
+    return JSONResponse(content=json_response)
 
 
 @app.patch(
@@ -121,17 +133,13 @@ def _del_predict_path(path_now_predict: str) -> None:
     name="patch_image",
     description="На вход принимает изображение для обработки. "
                 "Вернёт список распознаных классов в текстовом варианте.",
-    response_class=HTMLResponse,
+    response_class=JSONResponse,
 )
-async def get_image_txt(image: Annotated[UploadFile, File()]) -> HTMLResponse:
+async def get_image_txt(image: Annotated[UploadFile, File()]):
     data = await _get_predict(image)
 
     return data
 
 
-def start_local_server(server_port: int | None = None) -> None:  # start local server to api
-    if server_port is None:
-        uvicorn.run(app=app, port=API_SERVER_PORT)
-
-    elif server_port is not None:
-        uvicorn.run(app=app, port=server_port)
+def start_local_server() -> None:  # start local server to api
+    uvicorn.run(app=app, port=API_SERVER_PORT, host=API_SERVER_HOST)
