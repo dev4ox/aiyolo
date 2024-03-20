@@ -1,5 +1,5 @@
 from model import Model
-from api import start_local_server
+from tools.api import APITools
 
 
 class Main:
@@ -10,8 +10,12 @@ class Main:
         self.model = Model()
         print("model init done")
 
+        # api tools init in main class
+        self.api_tools = APITools()
+        print("api tools init done")
+
 
 if __name__ == '__main__':
     main = Main()
-    start_local_server()
+    main.api_tools.start_local_server()
     # main.model.train()
