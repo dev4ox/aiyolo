@@ -5,6 +5,11 @@ __pycache__/
 test/
 key.py
 1dataset/
+dataset1/
+dataset2/
+dataset3/
+runs/
+testing/
 
 # C extensions
 *.so
