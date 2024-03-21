@@ -91,13 +91,12 @@ class APITools(metaclass=Singleton):
         return Path(new_path_output_image)
 
     @staticmethod
-    def _sort_predict_text(predict_file_data: list) -> str:  # func sort predict text
-
-        # Создаем список для хранения данных
+    def _sort_predict_text(predict_file_data: list) -> list:  # func sort predict text
+        # Create a list to store data
         detections = []
 
-        # Разбиваем строки и сохраняем данные в список
-        for line in lines:
+        # We split the lines and save the data into a list
+        for line in predict_file_data:
             parts = line.strip().split()
             label = int(parts[0])
             x_center = float(parts[1])
@@ -106,12 +105,14 @@ class APITools(metaclass=Singleton):
             height = float(parts[4])
             detections.append((label, x_center, y_center, width, height))
 
-        # Сортируем список по координатам центра объекта (может потребоваться дополнительная логика, если объекты расположены по-другому)
-        detections.sort(key=lambda x: (x[2], x[1]))  # Сортировка по y_center, а затем по x_center
+        # Sort the list by object center coordinates
+        detections.sort(key=lambda x: (x[2], x[1]))  # Sort by y_center and then by x_center
 
-        # Выводим отсортированные данные
+        # Output sorted data
         for detection in detections:
             print(detection)
+
+        return detections
 
     async def _get_predict_text(self, image_path: Path) -> str:  # func get predict text
         # get paths from "image_path"
@@ -128,15 +129,15 @@ class APITools(metaclass=Singleton):
             with open(path_predict_txt, "r") as predict_file_txt:
                 data = predict_file_txt.readlines()
 
+            # sort data from predict text file
+            data = self._sort_predict_text(data)
+
             # get classes from predict text data
             for line in data:
-                predict_text += CLASSES[int(line[:2])]
+                predict_text += CLASSES[line[0]]
 
         except FileNotFoundError:
             pass
-
-        # sort predict text
-        # predict_text = self._sort_predict_text(data)
 
         return predict_text
 

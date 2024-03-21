@@ -10,6 +10,7 @@ dataset2/
 dataset3/
 runs/
 testing/
+images/
 
 # C extensions
 *.so
