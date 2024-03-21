@@ -4,17 +4,10 @@ from typing import Annotated
 from pathlib import Path
 import uuid
 
-from fastapi import FastAPI, UploadFile, File
-from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File
 from fastapi.responses import JSONResponse
-import uvicorn
-from PIL import Image
 
 from config import (
-    API_VERSION,
-    API_TITLE,
-    API_DOCS_URL,
-    API_OPEN_URL,
     DIR_IMAGES,
     DIR_RUNS,
     API_SERVER_HOST,
@@ -24,45 +17,17 @@ from config import (
     MODEL_IMAGE_SIZE,
 )
 from model import Model
-from tools.os_custom import OSTools
 from tools.pillow_custom import PillowTools
 from singleton import Singleton
 
 
 class APITools(metaclass=Singleton):
     def __init__(self):
-        # get custom os tools
-        self._os_tools = OSTools()
-
-        # init api app
-        self.app = self._init_api_app()
-
         # init yolo model
         self._model = Model()
 
         # get custom pillow tools
         self._pillow_tools = PillowTools()
-
-        # mount /static to directory "images/"
-        self.app.mount("/static", StaticFiles(directory="images/"), name="static")
-
-    def _init_api_app(self) -> FastAPI:  # func init api app
-        # init api app
-        app = FastAPI(
-            title=API_TITLE,
-            version=API_VERSION,
-            openapi_url=API_OPEN_URL,
-            docs_url=API_DOCS_URL,
-        )
-
-        # remove directories runs/ and images/
-        self._os_tools.remove_file_or_directory(DIR_RUNS)
-        self._os_tools.remove_file_or_directory(DIR_IMAGES)
-
-        # create directory images/
-        os.mkdir(DIR_IMAGES)
-
-        return app
 
     def _input_image_file_crop(self, image_path: str, show_input_scaled_image: bool = False) -> None:
         # get object pillow image
@@ -83,13 +48,12 @@ class APITools(metaclass=Singleton):
         bottom = min(height, top + new_height)
         cropped_image = image.crop((left, top, right, bottom))
 
-        # Scale the image
-        scaled_image = cropped_image.resize(new_image_size, Image.LANCZOS)
+        # save input scaled image
+        cropped_image.save(image_path)
 
-        scaled_image.save(image_path)
-
+        # show input scaled image
         if show_input_scaled_image:
-            scaled_image.show()
+            cropped_image.show()
 
     def _create_image_file(self, input_image: Annotated[UploadFile, File()]) -> Path:  # func create input image
         # create directory to input image
@@ -198,11 +162,3 @@ class APITools(metaclass=Singleton):
         }
 
         return JSONResponse(content=json_response)
-
-    def start_local_server(self) -> None:  # func start local server to api
-        # start uvicorn server
-        uvicorn.run(
-            app=self.app,
-            port=API_SERVER_PORT,
-            host=API_SERVER_HOST
-        )
